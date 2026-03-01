@@ -2,6 +2,7 @@
 ## Frontier Multi-Agent Systems & Memory
 **Compiled:** 2026-03-01 | **Researcher:** Claude (Sonnet 4.6)
 **Purpose:** Permanent reference. Informs all HENRY architecture decisions.
+**Living file:** Append new findings with date. Never overwrite existing entries.
 
 ---
 
@@ -31,7 +32,7 @@
 
 | Lesson | What it means for HENRY |
 |---|---|
-| Teach orchestrator to delegate properly | Each sub-agent needs: objective, output format, tool guidance, task boundaries. Vague = duplicate work + gaps. | 
+| Teach orchestrator to delegate properly | Each sub-agent needs: objective, output format, tool guidance, task boundaries. Vague = duplicate work + gaps. |
 | Scale effort to query complexity | Simple: 1 agent, 3-10 calls. Compare: 2-4 sub-agents, 10-15 calls each. Complex: 10+ sub-agents. Embed scaling rules IN prompts. |
 | Emergent behaviors | Small prompt changes unpredictably cascade. Best prompts = "frameworks for collaboration" not rigid scripts. |
 | Observability critical | Agents are non-deterministic. Full production tracing required. Monitor decision patterns. |
@@ -299,6 +300,121 @@ This is Agent-R + MARS combined. The full academic self-improvement loop — imp
 
 ---
 
+## SOURCE 5: PERPLEXITY COMPUTER (Feb 27, 2026)
+**Added:** 2026-03-01 | **Researcher:** Claude (Sonnet 4.6)
+
+### What It Is
+Cloud-based, fully managed multi-agent orchestration platform. Launched Feb 25, 2026.
+Coordinates **19+ frontier AI models** (Anthropic, Google, OpenAI, xAI) within a single interface.
+Available only to Perplexity Max subscribers at **$200/month** + credit-based usage.
+**No public developer API** for the orchestration layer (as of March 2026).
+
+### Architecture: The Meta-Router
+Core is a **meta-router** that:
+1. Receives natural-language goal
+2. Decomposes into subtasks
+3. Classifies each by type/complexity
+4. Routes to optimal model — invisibly to user
+
+**Known model routing:**
+| Model | Role |
+|---|---|
+| Claude Opus 4.6 | Primary reasoning engine, orchestration, complex coding |
+| Google Gemini | Deep research, multi-source web aggregation |
+| ChatGPT 5.2 | Long-context recall, month-long workflows |
+| Grok | Ultra-low-latency lightweight queries (cost protection) |
+| Nano Banana | Image generation |
+| Veo 3.1 | Video generation |
+
+**Key design principle:** Decoupled concerns — reasoning, code, summarization, vision, retrieval each have separate routing logic. Model-agnostic — swap models without redesigning platform.
+
+### Capabilities
+- Research & analysis: market research, competitive intel, parallel web search
+- Document creation: reports, slide decks, spreadsheets
+- Software development: web dashboards, micro-apps, Android apps — end to end
+- Async monitoring: email/calendar/flight watching, condition-based triggers, scheduled briefings
+- Tasks can run **for hours or months** in isolated cloud sandboxes
+- 400+ app integrations (Gmail, Slack, GitHub, Notion, Salesforce, etc.)
+
+### Perplexity Computer vs. OpenClaw
+
+| Dimension | Perplexity Computer | OpenClaw |
+|---|---|---|
+| Deployment | Fully managed cloud | Self-hosted, local-first |
+| Interface | Web app | Messaging apps (Telegram, WhatsApp, etc.) |
+| Model routing | Proprietary meta-router, 19+ models | User-configured, 14+ providers + local models |
+| Data residency | Perplexity's cloud | User's own hardware |
+| Extensibility | 400+ curated connectors | Open skill system, shell access, MCP |
+| Pricing | $200/month + credits | Free (you pay model API costs) |
+| Source code | Proprietary | MIT open-source |
+| Security | Sandboxed cloud isolation | Broad local permissions |
+
+**Bottom line:** Perplexity Computer = Apple's curated App Store. OpenClaw = open web. Same goal (multi-model agent orchestration), opposite philosophy.
+
+### What This Means for HENRY's Product Strategy
+**HENRY's product is exactly this** — a custom-configured OpenClaw harness sold as a managed service.
+
+```
+Perplexity Computer:  $200/month flat, Perplexity controls the harness
+HENRY [VERTICAL]:     $500 setup + $X/month, Whitt controls the harness, client owns their AI bill
+
+HENRY's advantage:
+  - Vertical-specific (CPA firms, HVAC, contractors — not generic)
+  - Client pays their own API costs directly (no margin compression)
+  - OpenClaw is open-source foundation — zero licensing cost
+  - Whitt's custom agent configs ARE the product (the harness is the moat)
+```
+
+**No developer API for Perplexity Computer = no competition for builders yet.**
+Watch March 11, 2026 "Ask" developer conference for API announcement.
+
+### Pricing
+- Max tier: $200/month required
+- Included: 10,000 credits/month
+- Launch bonus: 20,000 credits (expires 30 days)
+- Additional credits: pay-as-you-go, auto-refill available
+- Unused monthly credits do NOT roll over
+- Tasks pause (not cancel) when credits run out
+
+---
+
+## SOURCE 6: PEER REVIEW OF HENRY ARCHITECTURE (2026-03-01)
+**Added:** 2026-03-01 | **Source:** Gemini Pro 3.1 independent peer review
+
+### Overall Assessment: Accept with Major Revisions
+
+### ✅ Valid Critiques (Claude agrees)
+
+**1. The "Bitter Lesson" contradiction is real.**
+Research says complex pipelines are being replaced by single-context prompts — yet HENRY builds a massively complex pipeline (parallel sub-agents, Zettelkasten memory, MCTS, logit masking).
+- **Resolution:** HENRY's complexity is *transitionally* justified (models aren't quite there yet in 2026). Architecture should shrink over time as model capabilities absorb pipeline logic. Build rip-out hooks from day one.
+
+**2. 20-query eval is insufficient for OPTIMIZER write permissions.**
+For a system that auto-rewrites tools system-wide, 20-query LLM-as-judge is dangerously low bar.
+- **Resolution:** OPTIMIZER requires higher eval threshold before pushing system-wide updates. Minimum 50 queries, human approval gate on structural changes. This is a real operational risk.
+
+**3. "Model = commodity" vs. "Claude 4 is excellent" contradiction.**
+Architecture simultaneously claims models don't matter AND relies on Claude 4's specific reasoning quality.
+- **Resolution:** Models are approaching commodity but not there yet in 2026. HENRY uses Claude Sonnet 4 as daily driver. Architecture should work when model is swapped, but current quality dependency is acknowledged.
+
+### ❌ Critiques Claude Disagrees With
+
+**4. Logit masking vs. autonomous tool creation — NOT a real contradiction.**
+Reviewer claims: "If state machine restricts tool visibility, agents can't invent new tools."
+- **Rebuttal:** Logit masking operates at *execution layer* (which tool to call mid-task). Tool *creation* happens at *improvement layer* (OPTIMIZER, between sessions). These don't conflict. Analogy: a surgeon restricted to sterile tools during surgery can still invent new instruments in the lab.
+
+**5. Zettelkasten vs. structured memory tiers — design tradeoff, not a flaw.**
+Reviewer claims forcing associative memory into rigid tiers "frequently causes retrieval failures."
+- **Rebuttal:** Pure Zettelkasten with no structure is retrieval chaos at scale. The 4-layer memory system is a practical engineering constraint. The hybrid (associative linking within structured tiers) is intentional and defensible.
+
+### 🔴 Real Risk the Peer Review MISSED
+
+**Token cost is the actual operational risk — not the philosophical ones.**
+HENRY's parallel sub-agent architecture + full memory reads at boot will burn tokens fast. Whitt already burned 7.5M tokens in 6 hours and $120 in one run.
+- **Mitigation already in place:** Multi-model routing (Gemini Flash for heartbeats, DeepSeek for reasoning, Claude Sonnet for execution). This must be enforced at TIER level — not optional.
+
+---
+
 ## REFERENCES
 
 | Source | Date | URL/Location |
@@ -318,7 +434,9 @@ This is Agent-R + MARS combined. The full academic self-improvement loop — imp
 | Memory in Age of AI Agents survey | Dec 2025 | arXiv |
 | The AI Hippocampus | Jan 2026 | arXiv |
 | MemoryArena benchmark | Feb 2026 | arXiv |
+| Perplexity Computer launch | Feb 2026 | perplexity.ai/hub/blog |
+| Perplexity Computer peer review | Mar 2026 | Gemini Pro 3.1 analysis |
 
 ---
 
-*This document is the permanent research record. Do not modify — append new findings below with date.*
+*This document is the permanent research record. Append new findings below with date. Never overwrite.*
