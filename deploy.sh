@@ -1,22 +1,19 @@
 #!/bin/bash
 # HENRY BMAD V6 — Deploy Script
 # Usage: ./deploy.sh all
-# Copies agent files to ~/.bmad/agents/ for bmad-mcp-server
 
 set -e
 
 BMAD_DIR="$HOME/.bmad"
 AGENTS_DIR="$BMAD_DIR/agents"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")") && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "================================"
 echo " HENRY BMAD V6 — Deploy"
 echo "================================"
 
-# Create .bmad directory structure
 mkdir -p "$AGENTS_DIR"
 
-# Copy module config
 cat > "$BMAD_DIR/module.yaml" << 'EOF'
 name: henry-ai-corp
 version: 6.0.0
@@ -34,7 +31,6 @@ agents:
   - engine
 EOF
 
-# Copy all agent files
 echo "Deploying agents..."
 for agent_file in "$SCRIPT_DIR/agents"/*.agent.md; do
   agent_name=$(basename "$agent_file" .agent.md)
