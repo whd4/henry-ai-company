@@ -1,16 +1,32 @@
 /**
- * HENRY-CORE HANDLER
- * Now powered by PRISM-MC: Triple-Lens + Monte Carlo + DeepConf
+ * HENRY-CORE HANDLER v3
  * 
- * Every tool call runs through:
- * 1. Triple-Lens (3 parallel perspectives: Optimizer / Validator / Contrarian)
- * 2. Monte Carlo scoring (each lens scored 0-20 on 4 dimensions)
- * 3. DeepConf gate (threshold 14/20 — loops up to 3x if below)
- * 4. Winner delivered with full confidence trace
+ * Three execution modes:
+ * 
+ * 1. RALPH LOOP (persistent + pruning)
+ *    Triggered by: ralph=true flag OR task starts with RALPH:
+ *    - Ralph orchestrates sub-agents in loops
+ *    - Monte Carlo validates every sub-agent path
+ *    - Prunes bad paths, redirects agents
+ *    - All sub-agents share a live status board
+ *    - Keeps going until solved (16/20) or max iterations (8)
+ * 
+ * 2. PRISM-MC (triple-lens + confidence gate)
+ *    Triggered by: strategic tools OR task contains strategy keywords
+ *    - 3 parallel lenses: Optimizer / Validator / Contrarian
+ *    - DeepConf gate at 14/20
+ *    - Loops up to 3x if below threshold
+ * 
+ * 3. FAST PATH (single call)
+ *    Triggered by: simple/lookup tasks
+ *    - Single Opus call
+ *    - Still includes confidence score
  */
 
 import { tools } from './tools.js';
 import { runPRISM } from './prism.js';
+import { runRalph, StatusBoard } from './ralph.js';
+import { randomUUID } from 'crypto';
 
 const ROLES = {
   henry_agent_architect:    'Elite AI agent systems architect. Multi-agent topologies, orchestration, ReAct loops.',
@@ -35,79 +51,96 @@ const ROLES = {
   henry_workflow_automation:'Automation engineer. n8n, Make, Zapier, webhooks, Windows automation.'
 };
 
+// ============================================================
+// MAIN HANDLER
+// ============================================================
 export async function handleTool(name, args) {
   if (!tools.find(t => t.name === name))
     return { content: [{ type:'text', text:`Error: '${name}' not found` }], isError: true };
-  
+
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key)
     return { content: [{ type:'text', text:'Error: set ANTHROPIC_API_KEY in henry-core/.env' }], isError: true };
-  
-  // Decide whether to use PRISM-MC or fast path
-  // Fast path: simple lookups, short tasks (saves tokens)
-  // PRISM-MC: anything strategic, creative, or high-stakes
-  const usePRISM = shouldUsePRISM(name, args.task);
-  
+
+  const role = ROLES[name] || 'HENRY specialist';
+  const task = args.task;
+  const context = args.context || '';
+
   try {
-    if (usePRISM) {
-      const result = await runPRISM(
-        args.task,
-        args.context || '',
-        ROLES[name] || 'HENRY specialist',
-        key
-      );
+    // ROUTE 1: RALPH LOOP
+    if (shouldUseRalph(name, task, args)) {
+      const taskId = `ralph_${Date.now()}_${randomUUID().split('-')[0]}`;
+      const result = await runRalph(task, context, taskId, key);
       return { content: [{ type:'text', text: result.text }] };
-    } else {
-      // Fast path — single call, still gets confidence score
-      return await fastPath(name, args, key);
     }
+
+    // ROUTE 2: PRISM-MC
+    if (shouldUsePRISM(name, task)) {
+      const result = await runPRISM(task, context, role, key);
+      return { content: [{ type:'text', text: result.text }] };
+    }
+
+    // ROUTE 3: FAST PATH
+    return await fastPath(name, task, context, role, key);
+
   } catch(e) {
-    return { content: [{ type:'text', text:`PRISM error: ${e.message}` }], isError: true };
+    return { content: [{ type:'text', text:`Engine error: ${e.message}` }], isError: true };
   }
 }
 
 // ============================================================
-// PRISM-MC ROUTING DECISION
+// STATUS CHECK — read a Ralph task's live status board
 // ============================================================
-function shouldUsePRISM(toolName, task) {
-  // Always use PRISM for high-stakes tools
-  const alwaysPRISM = [
-    'henry_agent_architect',
-    'henry_software_architect', 
-    'henry_ai_product_design',
-    'henry_launch_strategy',
-    'henry_pricing_strategy',
-    'henry_saas_launcher',
-    'henry_loki_mode'
-  ];
-  if (alwaysPRISM.includes(toolName)) return true;
-  
-  // Use PRISM if task contains strategic keywords
-  const strategicKeywords = ['strategy', 'decide', 'should i', 'best way', 'how to', 'design', 'build', 'plan', 'acquire', 'invest'];
-  const taskLower = task.toLowerCase();
-  return strategicKeywords.some(kw => taskLower.includes(kw));
+export async function getTaskStatus(taskId) {
+  try {
+    const board = new StatusBoard(taskId);
+    return board.read();
+  } catch(e) {
+    return { error: e.message };
+  }
 }
 
 // ============================================================
-// FAST PATH — single call with confidence score
+// ROUTING LOGIC
 // ============================================================
-async function fastPath(name, args, key) {
-  const FMT = `You are a HENRY specialist. Owner: Whitt Dwyer, Houston TX, severe ADD/ADHD.
-FORMAT: Bottom line first (1-2 sentences). Numbered steps. Micro-steps. Visual structure.
-CONFIDENCE: Start response with CONFIDENCE: X/20 on its own line.
-End: NEXT ACTION → [exact step]. No fluff.`;
-  
+function shouldUseRalph(toolName, task, args) {
+  // Explicit ralph flag
+  if (args.ralph === true) return true;
+  // Task starts with RALPH:
+  if (task.toUpperCase().startsWith('RALPH:')) return true;
+  // Always ralph for complex multi-step tools
+  const alwaysRalph = ['henry_loki_mode', 'henry_autonomous_loop'];
+  if (alwaysRalph.includes(toolName)) return true;
+  // Ralph if task is long and complex
+  if (task.length > 200) return true;
+  return false;
+}
+
+function shouldUsePRISM(toolName, task) {
+  const alwaysPRISM = [
+    'henry_agent_architect', 'henry_software_architect',
+    'henry_ai_product_design', 'henry_launch_strategy',
+    'henry_pricing_strategy', 'henry_saas_launcher'
+  ];
+  if (alwaysPRISM.includes(toolName)) return true;
+  const keywords = ['strategy','decide','should i','best way','how to','design','build','plan','acquire','invest'];
+  return keywords.some(kw => task.toLowerCase().includes(kw));
+}
+
+// ============================================================
+// FAST PATH
+// ============================================================
+async function fastPath(name, task, context, role, key) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
       model: 'claude-opus-4-6',
       max_tokens: 4096,
-      system: `${FMT}\n\nRole: ${ROLES[name] || 'HENRY specialist'}`,
-      messages: [{ role: 'user', content: `Task: ${args.task}${args.context ? `\nContext: ${args.context}` : ''}` }]
+      system: `You are a HENRY specialist. Owner: Whitt Dwyer, Houston TX, severe ADD/ADHD.\nFORMAT: Bottom line first. Numbered steps. Micro-steps. CONFIDENCE: X/20 on first line. End: NEXT ACTION → [step]. No fluff.\nRole: ${role}`,
+      messages: [{ role: 'user', content: `Task: ${task}${context ? `\nContext: ${context}` : ''}` }]
     })
   });
-  
   if (!res.ok) return { content: [{ type:'text', text:`API error ${res.status}` }], isError: true };
   const d = await res.json();
   return { content: [{ type:'text', text: d.content?.[0]?.text || 'No response' }] };
