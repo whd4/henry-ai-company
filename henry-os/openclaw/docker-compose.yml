@@ -1,0 +1,90 @@
+version: '3.9'
+
+services:
+
+  # ============================================================
+  # OPENCLAW — Autonomous agent runtime
+  # ============================================================
+  openclaw:
+    image: node:22-alpine
+    container_name: henry-openclaw
+    working_dir: /app
+    volumes:
+      - ./openclaw-data:/app/data
+      - ./agents:/app/agents
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - HENRY_OWNER_CHAT_ID=${HENRY_OWNER_CHAT_ID}
+      - MODEL_ORCHESTRATOR=claude-opus-4-6
+      - MODEL_SUBAGENT=deepseek/deepseek-r1
+      - MODEL_HEARTBEAT=google/gemini-flash-1.5
+      - MAX_SUBAGENTS=10
+      - MEMORY_PATH=/app/data/memory
+    ports:
+      - "18789:18789"
+    restart: unless-stopped
+    command: sh -c "npm install && node server.js"
+    networks:
+      - henry-net
+
+  # ============================================================
+  # HENRY-CORE — MCP skills server
+  # ============================================================
+  henry-core:
+    image: node:22-alpine
+    container_name: henry-core
+    working_dir: /app
+    volumes:
+      - ../henry-core:/app
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+    command: sh -c "npm install && node src/index.js"
+    networks:
+      - henry-net
+
+  # ============================================================
+  # HENRY-PHONE — Twilio voice/SMS bridge
+  # ============================================================
+  henry-phone:
+    image: node:22-alpine
+    container_name: henry-phone
+    working_dir: /app
+    volumes:
+      - ../henry-phone:/app
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    command: sh -c "npm install && node server.js"
+    networks:
+      - henry-net
+
+  # ============================================================
+  # MEMORY — Persistent agent memory store
+  # ============================================================
+  memory:
+    image: redis:7-alpine
+    container_name: henry-memory
+    ports:
+      - "6379:6379"
+    volumes:
+      - henry-memory-data:/data
+    restart: unless-stopped
+    networks:
+      - henry-net
+
+networks:
+  henry-net:
+    driver: bridge
+
+volumes:
+  henry-memory-data:
