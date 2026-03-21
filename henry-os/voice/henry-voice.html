@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HENRY</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#0a0a0a; color:#e8e8e8; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+#header { padding:14px 20px; border-bottom:1px solid #1e1e1e; display:flex; align-items:center; gap:10px; }
+#header h1 { font-size:17px; font-weight:600; letter-spacing:0.08em; color:#fff; }
+#dot { width:8px; height:8px; border-radius:50%; background:#2a2a2a; transition:background .3s,box-shadow .3s; }
+#dot.listening { background:#ef4444; box-shadow:0 0 10px #ef4444aa; }
+#dot.thinking  { background:#f59e0b; box-shadow:0 0 10px #f59e0baa; }
+#dot.speaking  { background:#22c55e; box-shadow:0 0 10px #22c55eaa; }
+#setup { padding:10px 20px; border-bottom:1px solid #161616; display:flex; gap:8px; align-items:center; }
+#setup input { flex:1; background:#161616; border:1px solid #2a2a2a; border-radius:6px; padding:7px 12px; color:#e8e8e8; font-size:13px; font-family:monospace; outline:none; }
+#save-btn { background:#0f2a1a; border:1px solid #1a4a2a; border-radius:6px; color:#4ade80; padding:7px 14px; font-size:13px; cursor:pointer; }
+#speak-label { display:flex; align-items:center; gap:5px; color:#555; font-size:12px; cursor:pointer; white-space:nowrap; }
+#msgs { flex:1; overflow-y:auto; padding:16px 20px; display:flex; flex-direction:column; gap:14px; }
+.msg { max-width:820px; padding:11px 15px; border-radius:10px; font-size:14px; line-height:1.65; white-space:pre-wrap; }
+.msg.you    { background:#0f1e2e; border:1px solid #1a3048; align-self:flex-end; color:#93c5fd; max-width:70%; }
+.msg.henry  { background:#141414; border:1px solid #222; align-self:flex-start; color:#e0e0e0; }
+.msg.system { background:transparent; border:none; color:#3a3a3a; font-size:12px; align-self:center; }
+#live { padding:0 20px 6px; color:#444; font-size:12px; font-style:italic; min-height:18px; }
+#bar { padding:16px 20px; border-top:1px solid #161616; display:flex; gap:10px; align-items:flex-end; }
+#mic { width:52px; height:52px; border-radius:50%; border:1.5px solid #2a2a2a; background:#141414; cursor:pointer; font-size:20px; display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0; }
+#mic:hover { border-color:#444; background:#1e1e1e; }
+#mic.on { border-color:#ef4444; background:#1e0a0a; box-shadow:0 0 14px rgba(239,68,68,.25); }
+#inp { flex:1; background:#141414; border:1px solid #2a2a2a; border-radius:24px; padding:13px 18px; color:#e8e8e8; font-size:14px; outline:none; resize:none; height:50px; font-family:inherit; }
+#inp:focus { border-color:#3a3a3a; }
+#go { width:50px; height:50px; border-radius:50%; background:#0f2a1a; border:1px solid #1a4a2a; color:#4ade80; font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0; }
+</style>
+</head>
+<body>
+<div id="header">
+  <div id="dot"></div>
+  <h1>HENRY</h1>
+  <span style="font-size:11px;color:#333;margin-left:auto">Opus 4.6 · Voice + Text</span>
+</div>
+<div id="setup">
+  <input type="password" id="key" placeholder="Anthropic API key (sk-ant-...)">
+  <button id="save-btn" onclick="saveKey()">Save</button>
+  <label id="speak-label"><input type="checkbox" id="speak" checked> Speak back</label>
+</div>
+<div id="msgs"><div class="msg system">HENRY OS ready. Tap mic or type.</div></div>
+<div id="live"></div>
+<div id="bar">
+  <button id="mic" onclick="toggleMic()" title="Voice input">🎙</button>
+  <textarea id="inp" placeholder="Type or speak..." onkeydown="onKey(event)"></textarea>
+  <button id="go" onclick="send()">➤</button>
+</div>
+<script>
+const SYS = `You are HENRY — a personal AI OS for Whitt Dwyer.
+Whitt: entrepreneur, Houston TX, severe ADD/ADHD, building HENRY AI Corporation targeting $1B revenue.
+
+MANDATORY FORMAT — every response:
+• BOTTOM LINE FIRST — 1-2 sentences max before anything else
+• NUMBERED STEPS — never prose instructions
+• MICRO-STEPS — smallest possible units
+• VISUAL STRUCTURE — headers, tables, separators
+• End: NEXT ACTION → [exact thing right now]
+• No fluff. No preamble. Execute.
+
+You handle EVERYTHING:
+BUSINESS: Dark Factory CPA acquisitions
+- TXS5513 PRIORITY ($424K, HNW clients, call APS.net 877-632-1040)
+- TXS5450 ($472K), TXS5491 ($910K SBA), TXS5345 ($142K backup)
+AGENCY: HENRY AI — Houston B2B AI transformation $5K-$25K/project
+LEGAL: Star Voss — units F210 F212 F310, active litigation, class action potential
+- Found F210 signed lease 2026-03-21 — scan + secure ASAP
+- Call HAA: (713) 595-0300
+- Call TX AG: (800) 621-0508
+PERSONAL: schedule, life, decisions, anything Whitt needs
+STRATEGY: niche identification, business building, world domination
+FIVERR: AI automation services (PDF, research, Windows, GitHub)`;
+
+let history = [];
+let recog = null;
+let listening = false;
+let apiKey = localStorage.getItem('henry_key') || '';
+if (apiKey) document.getElementById('key').value = apiKey;
+
+function saveKey() {
+  apiKey = document.getElementById('key').value.trim();
+  localStorage.setItem('henry_key', apiKey);
+  msg('system', 'API key saved ✓');
+}
+function dot(s) { document.getElementById('dot').className = s || ''; }
+function msg(role, txt) {
+  const el = document.createElement('div');
+  el.className = 'msg ' + role;
+  el.textContent = txt;
+  const c = document.getElementById('msgs');
+  c.appendChild(el);
+  c.scrollTop = c.scrollHeight;
+  return el;
+}
+async function ask(text) {
+  if (!apiKey) { msg('system', 'Save your API key first.'); return; }
+  msg('you', text);
+  history.push({ role:'user', content:text });
+  const el = msg('henry', '…');
+  dot('thinking');
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01' },
+      body:JSON.stringify({ model:'claude-opus-4-6', max_tokens:2048, system:SYS, messages:history })
+    });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error.message);
+    const reply = d.content?.[0]?.text || '(no response)';
+    el.textContent = reply;
+    history.push({ role:'assistant', content:reply });
+    if (document.getElementById('speak').checked) speak(reply); else dot('');
+  } catch(e) { el.textContent = 'Error: ' + e.message; el.style.color='#f87171'; dot(''); }
+}
+function speak(text) {
+  dot('speaking');
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text.replace(/[#*`>_~]/g,'').substring(0,900));
+  u.rate=1.05; u.pitch=0.95;
+  const v = speechSynthesis.getVoices();
+  const p = v.find(x => /David|Google.*English|Natural/.test(x.name));
+  if (p) u.voice = p;
+  u.onend = () => dot('');
+  speechSynthesis.speak(u);
+}
+function toggleMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { msg('system','Voice not available. Use Chrome or Edge.'); return; }
+  if (listening) { recog?.stop(); return; }
+  recog = new SR();
+  recog.continuous=false; recog.interimResults=true; recog.lang='en-US';
+  recog.onstart = () => { listening=true; document.getElementById('mic').classList.add('on'); dot('listening'); document.getElementById('live').textContent='Listening…'; };
+  recog.onresult = e => {
+    let fin='', int='';
+    for (let i=e.resultIndex; i<e.results.length; i++) {
+      if (e.results[i].isFinal) fin+=e.results[i][0].transcript;
+      else int+=e.results[i][0].transcript;
+    }
+    document.getElementById('live').textContent = fin||int;
+    if (fin) document.getElementById('inp').value = fin;
+  };
+  recog.onend = () => {
+    listening=false; document.getElementById('mic').classList.remove('on'); dot(''); document.getElementById('live').textContent='';
+    const t = document.getElementById('inp').value.trim();
+    if (t) { document.getElementById('inp').value=''; ask(t); }
+  };
+  recog.onerror = e => { listening=false; document.getElementById('mic').classList.remove('on'); dot(''); document.getElementById('live').textContent='Mic error: '+e.error; };
+  recog.start();
+}
+function send() {
+  const t = document.getElementById('inp').value.trim();
+  if (!t) return;
+  document.getElementById('inp').value='';
+  ask(t);
+}
+function onKey(e) { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send(); } }
+speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+</script>
+</body>
+</html>
